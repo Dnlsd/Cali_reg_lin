@@ -4,6 +4,7 @@ import streamlit as st
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+import pydeck as pdk
 
 
 from notebooks.src.config import DADOS_GEO_MEDIAN, DADOS_LIMPOS, MODELO_FINAL
@@ -32,74 +33,93 @@ modelo = carregar_modelo()
 
 st.title("Previsão de preços de imóveis")
 
+coluna_1, coluna_2 = st.columns(2)
+
 # valores de entrada
 
-condados = list(geo['name'].sort_values())
-selecionar_condado = st.selectbox("Condado", condados)
+with coluna_1:
 
-longitude = geo.query("name == @selecionar_condado")["longitude"].values
-latitude = geo.query("name == @selecionar_condado")["latitude"].values
+    condados = list(geo['name'].sort_values())
+    selecionar_condado = st.selectbox("Condado", condados)
 
-housing_median_age = st.number_input('Idade do imóvel', value=10,
-                                     min_value=0, max_value=50)
+    longitude = geo.query("name == @selecionar_condado")["longitude"].values
+    latitude = geo.query("name == @selecionar_condado")["latitude"].values
 
-# total_rooms = st.number_input('Total de cômodos', value=800)
-total_rooms = geo.query("name == @selecionar_condado")["total_rooms"].values
+    housing_median_age = st.number_input('Idade do imóvel', value=10,
+                                        min_value=0, max_value=50)
 
-# total_bedrooms = st.number_input('Total de quartos', value=100)
-total_bedrooms = geo.query("name == @selecionar_condado")["total_bedrooms"].values
+    # total_rooms = st.number_input('Total de cômodos', value=800)
+    total_rooms = geo.query("name == @selecionar_condado")["total_rooms"].values
 
-# population = st.number_input('População', value=300)
-population = geo.query("name == @selecionar_condado")["population"].values
+    # total_bedrooms = st.number_input('Total de quartos', value=100)
+    total_bedrooms = geo.query("name == @selecionar_condado")["total_bedrooms"].values
 
-# households = st.number_input('Domicílio', value=100)
-households = geo.query("name == @selecionar_condado")["households"].values
+    # population = st.number_input('População', value=300)
+    population = geo.query("name == @selecionar_condado")["population"].values
 
-median_income = st.slider("Renda média (em milhares de US$)", 
-                          5, 100, 45, 5)
-median_income_10 = median_income / 10
+    # households = st.number_input('Domicílio', value=100)
+    households = geo.query("name == @selecionar_condado")["households"].values
 
-# ocean_proximity = st.selectbox("Proximidade do oceano", df['ocean_proximity'].unique())
-ocean_proximity = geo.query("name == @selecionar_condado")['ocean_proximity'].values
+    median_income = st.slider("Renda média (em milhares de US$)", 
+                            5, 100, 45, 5)
+    median_income_10 = median_income / 10
 
-
-# median_income_cat = st.number_input('Categoria de renda', value=4)
-bins_income = [0, 1.5, 3, 4.5, 6, np.inf]
-median_income_cat = np.digitize(median_income_10, 
-                                bins=bins_income)
+    # ocean_proximity = st.selectbox("Proximidade do oceano", df['ocean_proximity'].unique())
+    ocean_proximity = geo.query("name == @selecionar_condado")['ocean_proximity'].values
 
 
-# rooms_per_household = st.number_input("Quartos por dominílio", value=7)
-rooms_per_household = geo.query("name == @selecionar_condado")['rooms_per_household'].values
-
-# bedrooms_per_room = st.number_input("Quartos por cômodo", value=0.2)
-bedrooms_per_room = geo.query("name == @selecionar_condado")['bedrooms_per_room'].values
-
-# population_per_household = st.number_input("Pessoas por dominílio", value=2)
-population_per_household = geo.query("name == @selecionar_condado")['population_per_household'].values
+    # median_income_cat = st.number_input('Categoria de renda', value=4)
+    bins_income = [0, 1.5, 3, 4.5, 6, np.inf]
+    median_income_cat = np.digitize(median_income_10, 
+                                    bins=bins_income)
 
 
-entrada_modelo = {
-    "longitude": longitude,
-    "latitude": latitude,
-    "housing_median_age": housing_median_age,
-    "total_rooms": total_rooms,
-    "total_bedrooms": total_bedrooms,
-    "population": population,
-    "households": households,
-    "median_income": median_income_10,
-    "ocean_proximity": ocean_proximity,
-    "median_income_cat": median_income_cat,
-    "rooms_per_household": rooms_per_household,
-    "bedrooms_per_room": bedrooms_per_room,
-    "population_per_household": population_per_household,
-}
+    # rooms_per_household = st.number_input("Quartos por dominílio", value=7)
+    rooms_per_household = geo.query("name == @selecionar_condado")['rooms_per_household'].values
 
-df_entrada_modelo = pd.DataFrame(entrada_modelo, 
-                                 index=[0])
+    # bedrooms_per_room = st.number_input("Quartos por cômodo", value=0.2)
+    bedrooms_per_room = geo.query("name == @selecionar_condado")['bedrooms_per_room'].values
 
-botao_previsao = st.button("Prever Preço")
+    # population_per_household = st.number_input("Pessoas por dominílio", value=2)
+    population_per_household = geo.query("name == @selecionar_condado")['population_per_household'].values
 
-if botao_previsao:
-    preco = modelo.predict(df_entrada_modelo)
-    st.write(f"Preço previsot: US$ {round(preco[0][0], -2):,.0f}")
+
+    entrada_modelo = {
+        "longitude": longitude,
+        "latitude": latitude,
+        "housing_median_age": housing_median_age,
+        "total_rooms": total_rooms,
+        "total_bedrooms": total_bedrooms,
+        "population": population,
+        "households": households,
+        "median_income": median_income_10,
+        "ocean_proximity": ocean_proximity,
+        "median_income_cat": median_income_cat,
+        "rooms_per_household": rooms_per_household,
+        "bedrooms_per_room": bedrooms_per_room,
+        "population_per_household": population_per_household,
+    }
+
+    df_entrada_modelo = pd.DataFrame(entrada_modelo, 
+                                    index=[0])
+
+    botao_previsao = st.button("Prever Preço")
+
+    if botao_previsao:
+        preco = modelo.predict(df_entrada_modelo)
+        st.write(f"Preço previsot: US$ {round(preco[0][0], -2):,.0f}")
+
+
+with coluna_2:
+    
+    view_state = pdk.ViewState(
+        latitude=float(latitude[0]), longitude=float(longitude[0]),
+        zoom=7, min_zoom=5, max_zoom=10
+    )
+
+    mapa = pdk.Deck(
+        initial_view_state=view_state,
+        # map_style='light'
+    )
+
+    st.pydeck_chart(mapa)
